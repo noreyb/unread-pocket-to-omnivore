@@ -24,8 +24,34 @@ class COminvoreQL:
         )
         self.client = Client(transport=transport, fetch_schema_from_transport=False)
 
-    def set_label(self, label: str):
-        pass
+    def set_label(self, page_id, label_id):
+        mutation_set_labels = gql(
+            """
+            mutation SetLabels($input: SetLabelsInput!) {
+              setLabels(input: $input) {
+                ... on SetLabelsSuccess {
+                  labels {
+                    ...LabelFields
+                  }
+                }
+                ... on SetLabelsError {
+                  errorCodes
+                }
+              }
+            }
+
+            fragment LabelFields on Label {
+              id
+              name
+              color
+              description
+              createdAt
+            }
+        """
+        )
+
+        variables = {"input": {"labelIds": [label_id], "pageId": page_id}}
+        return self.client.execute(mutation_set_labels, variable_values=variables)
 
     def create_label(self, label: str, description: str = "", color: str = "#ABB8C3"):
         mutation = gql(
@@ -63,9 +89,8 @@ def main():
     load_dotenv()
     api_key = os.getenv("OMNIVORE_API_KEY")
     client = OmnivoreQL(api_key)
-
-    profile = client.get_labels()
-    print(profile)
+    resp = client.save_url("https://www.google.com/")
+    page_id = resp["clientRequestId"]
 
     cclient = COminvoreQL(api_key)
     label = "hogehoge"
