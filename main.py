@@ -174,14 +174,58 @@ def date2datelabel(strdate: str):
 
 def main():
     load_dotenv()
-    api_key = os.getenv("OMNIVORE_API_KEY")
-    client = OmnivoreQL(api_key)
-    resp = client.save_url("https://www.google.com/")
-    page_id = resp["clientRequestId"]
 
-    cclient = COminvoreQL(api_key)
-    label = "hogehoge"
-    print(cclient.create_label(label))
+    # pocketからunreadなitemを取得する
+    pocket_token = os.getenv("POCKET_TOKEN")
+    consumer_key = os.getenv("POCKET_CONSUMER_KEY")
+    pocket = PocketHandler(pocket_token, consumer_key)
+
+    omnivore_token = os.getenv("OMNIVORE_API_KEY")
+    client = OmnivoreQL(omnivore_token)
+    cclient = COminvoreQL(omnivore_token)
+
+    unread_items = pocket.get_items()
+    for item in unread_items:
+        url = item[0]
+        date = item[1]
+
+        # Error handling
+        resp = requests.get(url)
+        if resp.status_code != requests.codes.ok:
+            print(f"status_code: {resp.status_code}, url: {url}")
+            # pocketの記事をアーカイブする
+            pocket.archive_item(url)
+            continue
+
+        # ラベルの存在を確認する
+        resp = client.get_labels()
+        labels = resp["labels"]["labels"]
+        labelname_id = {e["name"]: e["id"] for e in labels}
+        time.sleep(1)
+
+        label_id = None
+        datelabel = date2datelabel(date)
+        if datelabel not in list(labelname_id.keys()):
+            # 既存のラベルが無ければ、新しいラベルを生成しlabel_idを取得する
+            resp = cclient.create_label(datelabel)
+            time.sleep(1)
+            print(resp)
+            label_id = resp["createLabel"]["label"]["id"]
+        else:
+            # 既存のラベルがあれば、そのlabel_idを取得する
+            label_id = labelname_id[datelabel]
+
+        # URLをomnivoreへsave
+        resp = client.save_url(url)
+        page_id = resp["saveUrl"]["clientRequestId"]
+        time.sleep(1)
+
+        # URLにラベルをセットする
+        cclient.set_label(page_id, label_id)
+        time.sleep(1)
+
+        # pocketの記事をアーカイブする
+        pocket.archive_item(url)
 
 
 if __name__ == "__main__":
