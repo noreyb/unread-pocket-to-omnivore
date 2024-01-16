@@ -1,6 +1,8 @@
+import datetime
 import os
-import uuid
+import time
 
+import requests
 from dotenv import load_dotenv
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
@@ -83,6 +85,91 @@ class COminvoreQL:
             }
         }
         return self.client.execute(mutation, variable_values=variables)
+
+
+class PocketHandler:
+    def __init__(self, token, consumer_key):
+        self.token = token
+        self.consumer_key = consumer_key
+
+    def archive_item(self, url):
+        # get item_id from url
+        endpoint = "https://getpocket.com/v3/get"
+        resp = requests.post(
+            endpoint,
+            data={
+                "consumer_key": self.consumer_key,
+                "access_token": self.token,
+                "search": url,
+            },
+        )
+        # Error handling
+        if resp.status_code != requests.codes.ok:
+            raise Exception(f"status_code: {resp.status_code}, url: {url}")
+
+        resp = resp.json()
+        time.sleep(1)
+        if resp["status"] == 2:
+            # This item has been deleted
+            return None
+        item_id = resp["list"][list(resp["list"].keys())[0]]["item_id"]
+
+        # archive item
+        endpoint = "http://getpocket.com/v3/send"
+        data = {
+            "consumer_key": self.consumer_key,
+            "access_token": self.token,
+            "actions": [
+                {
+                    "action": "archive",
+                    "item_id": item_id,
+                }
+            ],
+        }
+        headers = {"Content-type": "application/json", "X-accept": "application/json"}
+        resp = requests.post(endpoint, json=data, headers=headers)
+        if resp.status_code != requests.codes.ok:
+            raise Exception(f"status_code: {resp.status_code}, url: {url}")
+        time.sleep(1)
+
+    def get_items(
+        self, state="unread", content_type="article", sort="oldest", count="10"
+    ):
+        # get item_id from url
+        endpoint = "https://getpocket.com/v3/get"
+        resp = requests.post(
+            endpoint,
+            data={
+                "consumer_key": self.consumer_key,
+                "access_token": self.token,
+                "state": state,
+                "contentType": content_type,
+                "sort": sort,
+                "count": count,
+            },
+        )
+        time.sleep(1)
+
+        # Error handling
+        if resp.status_code != requests.codes.ok:
+            raise Exception("Something is happen to access pocket api.")
+
+        resp = resp.json()
+        urls_times = []
+        for e in list(resp["list"].values()):
+            urls_times.append(
+                (
+                    e["given_url"],
+                    datetime.datetime.fromtimestamp(int(e["time_added"])).strftime(
+                        "%Y-%m"
+                    ),
+                )
+            )
+        return urls_times
+
+
+def date2datelabel(strdate: str):
+    return f"ZZ-{strdate}"
 
 
 def main():
