@@ -3,6 +3,7 @@ import os
 import time
 
 import requests
+from requests.exceptions import SSLError
 from dotenv import load_dotenv
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
@@ -190,7 +191,14 @@ def main():
         date = item[1]
 
         # Error handling
-        resp = requests.get(url)
+        try:
+            resp = requests.get(url)
+        except SSLError as e:
+            print(f"Skipping URL {url} due to SSL error: {e}")
+            # pocketの記事をアーカイブする
+            pocket.archive_item(url)
+            continue
+            
         if resp.status_code != requests.codes.ok:
             print(f"status_code: {resp.status_code}, url: {url}")
             # pocketの記事をアーカイブする
