@@ -15,10 +15,10 @@ jobs:
   update_omnivore:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - uses: Gr1N/setup-poetry@v8
+      - uses: Gr1N/setup-poetry@v9
       - run: poetry install --no-root
       - run: POCKET_TOKEN=${{secrets.POCKET_TOKEN}} POCKET_CONSUMER_KEY=${{secrets.POCKET_CONSUMER_KEY}} OMNIVORE_API_KEY=${{secrets.OMNIVORE_API_KEY}} poetry run python main.py
